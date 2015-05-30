@@ -22,8 +22,6 @@
  Debian系统下执行：
 > wget -c http://soft.vpser.net/lnmp/lnmp1.1-full.tar.gz && tar zxf lnmp1.1-full.tar.gz && cd lnmp1.1-full && ./debian.sh
 
- Ubuntu系统下执行：
-> wget -c http://soft.vpser.net/lnmp/lnmp1.1-full.tar.gz && tar zxf lnmp1.1-full.tar.gz && cd lnmp1.1-full && ./ubuntu.sh
 
 按上述命令执行后，会出现如下提示：
 
