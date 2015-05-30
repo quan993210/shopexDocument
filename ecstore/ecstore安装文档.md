@@ -28,12 +28,19 @@
 按上述命令执行后，会出现如下提示：
 
 ![Alt text](http://chuantu.biz/t2/9/1432953411x-1133352443.png)
+
 这一步需要设置MySQL的root密码，输入后回车进入下一步，如下图所示：
+
 ![Alt text](http://chuantu.biz/t2/9/1432953592x-1133352443.png)
+
 这里需要确认是否启用MySQL InnoDB，如果不确定是否启用可以输入 y ，这个可以单独在MySQL文件里关闭，输入 y 表示启用，输入 n 表示不启用。输入 y 或 n 后回车进入下一步，显示如下信息：
+
 ![Alt text](http://chuantu.biz/t2/9/1432953659x-1133352443.png)
+
 这一步是选择php版本，可以选择 PHP 5.3.28 或 PHP 5.2.17，如果需要安装PHP 5.3.28的话输入 y ，如果需要安装PHP 5.2.17 输入 n，输入 y 或 n 后回车，(这边必须选y,PHP必须是5.3版本）进入下一步MySQL版本的选择，如下图：
+
 ![Alt text](http://chuantu.biz/t2/9/1432964519x-1133352443.png)
+
 可以选择MySQL 版本 5.1.73、5.5.37或MariaDB 5.5.37，如果需要安装MySQL 5.5.37的话输入 y ，如果需要安装MySQL 5.1.73 输入n，如果需要安装MariaDB 5.5.37的话输入 md，输入完成后回车，完成选择。
 
 提示"Press any key to start..."，按回车键确认开始安装。
@@ -43,7 +50,9 @@ LNMP脚本就会自动安装编译Nginx、MySQL、PHP、phpMyAdmin、Zend Optimi
 
  - 3、安装完成
 如果显示如下界面：
+
 ![Alt text](http://chuantu.biz/t2/9/1432964636x-1133352443.png)
+
 # 4. 自己搭建环境
 
 ## 4.1 mysql配置
