@@ -272,7 +272,7 @@ LNMP脚本就会自动安装编译Nginx、MySQL、PHP、phpMyAdmin、Zend Optimi
 >  yum -y install  vixie-cron crontabs 
 
 - 2.root权限下执行以下命令：crontab -u www -e将下面两句放在里面
-##     
+
  * * * * * /home/wwwroot/www.hepinmeidu.com/script/queue/queue.sh /usr/bin/php >/dev/null
 
  * * * * * /home/wwwroot/www.hepinmeidu.com/script/crontab/crontab.php /usr/bin/php >/dev/null
