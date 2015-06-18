@@ -162,8 +162,8 @@ LNMP脚本就会自动安装编译Nginx、MySQL、PHP、phpMyAdmin、Zend Optimi
 
 > /etc/init.d/iptables restart
 
-- 8.上述步骤走完，应该就能出来安装页面，在浏览器中输入www.hepinmeidu.com 开始安装
-- 
+- 7.上述步骤走完，应该就能出来安装页面，在浏览器中输入www.hepinmeidu.com 开始安装
+
 ![Alt text](http://chuantu.biz/t2/9/1432968341x-1133352443.png)
 
 三. 在linux服务器安装LNMP环境之后，上传网站用vhost.sh 绑定域名之后，（服务器ip也解析好了），还是无法访问网站：
