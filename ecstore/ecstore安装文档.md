@@ -53,13 +53,655 @@ LNMP脚本就会自动安装编译Nginx、MySQL、PHP、phpMyAdmin、Zend Optimi
 
 ![Alt text](http://chuantu.biz/t2/9/1432964636x-1133352443.png)
 
-# 4. 自己搭建环境
+# 4. 单独搭建环境
 
-## 4.1 mysql配置
 
-## 4.2 php配置
+- 以下安装过程中可能存在部分下载链接错误导致下载失败，请自行下载对应的安装包
 
-## 4.3 nginx配置
+
+标准库安装————标准库是一些基本的底层库，有很多软件都是依附与这些底层库
+    
+    yum -y install wget make vim install gcc gcc-c++ ncurses ncurses-devel autoconf libjpeg libjpeg-devel libpng libpng-devel freetype freetype-devel libxml2 libxml2-devel zlib zlib-devel glibc glibc-devel glib2 glib2-devel bzip2 bzip2-devel curl curl-devel e2fsprogs e2fsprogs-devel krb5 krb5-devel libidn libidn-devel openssl openssl-devel openldap openldap-devel nss_ldap openldap-clients openldap-servers pcre pcre-devel  zlip zlip-devel
+
+
+
+php依赖库安装
+
+libxml2 ———— 包含库和实用工具用于解析XML文件
+
+    wget http://xmlsoft.org/sources/libxml2-2.9.0.tar.gz
+    tar zxvf libxml2-2.9.0.tar.gz
+    cd libxml2-2.9.0
+    ./configure
+    make&&make install
+    
+    libmcrypt ———— 加密算法扩展库(支持DES, 3DES, RIJNDAEL, Twofish, IDEA, GOST, CAST-256, ARCFOUR, SERPENT, SAFER+等算法)
+    
+    wget ftp://mcrypt.hellug.gr/pub/crypto/mcrypt/libmcrypt/libmcrypt-2.5.7.tar.gz
+    tar zxvf libmcrypt-2.5.7.tar.gz
+    cd libmcrypt-2.5.7
+    ./configure
+    make && make install
+    
+
+
+###MYSQL配置&安装
+
+ **安装** 
+
+    wget http://soft.vpser.net/datebase/mysql/mysql-5.5.37.tar.gz
+    tar zxvfmysql-5.5.37.tar.gz -C /usr/local/webserver
+    mv mysql-5.5.37.tar.gz mysql
+ **配置**
+
+    shell> groupadd mysql
+    shell> useradd -r -g mysql mysql
+    shell> cd /usr/local/webserver/mysql
+    shell> chown -R mysql .
+    shell> chgrp -R mysql .
+    shell> scripts/mysql_install_db --user=mysql
+    shell> chown -R root .
+    shell> chown -R mysql data
+    # Next command is optional
+    shell> cp support-files/my-default.cnf /etc/my.cnf
+    shell> bin/mysqld_safe --user=mysql &
+**修改mysql.server脚本**
+
+    将
+    basedir=
+    datadir=
+    改为
+    basedir=/usr/local/webserver/mysql
+    datadir=/usr/local/webserver/mysql/data
+
+**配置启动脚本**
+
+    cd /usr/local/webserver/mysql
+    cp support-files/mysql.server /etc/init.d/mysql
+
+**启动mysql**
+
+    service mysql start
+    service mysql stop
+    service mysql restart
+###NGINX 安装&配置
+
+**安装**
+
+    wget http://nginx.org/download/nginx-1.5.1.tar.gz
+    tar zxvf nginx-1.5.1.tar.gz
+    cd nginx-1.5.1
+    ./configure --prefix=/usr/local/webserver/nginx
+    make && make install
+
+**参数配置**
+
+ fastcgi创建php-cgi.conf
+
+    cat > /usr/local/webserver/nginx/conf/php_fcgi.conf <<'EOF'
+    fastcgi_pass  unix:/tmp/php_fcgi.sock;
+    
+    fastcgi_param  GATEWAY_INTERFACE  CGI/1.1;
+    fastcgi_param  SERVER_SOFTWAREnginx;
+    
+    fastcgi_param  QUERY_STRING   $query_string;
+    fastcgi_param  REQUEST_METHOD $request_method;
+    fastcgi_param  CONTENT_TYPE   $content_type;
+    fastcgi_param  CONTENT_LENGTH $content_length;
+    
+    fastcgi_param  SCRIPT_FILENAME$document_root$fastcgi_script_name;
+    fastcgi_param  SCRIPT_NAME$fastcgi_script_name;
+    fastcgi_param  REQUEST_URI$request_uri;
+    fastcgi_param  DOCUMENT_URI   $document_uri;
+    fastcgi_param  DOCUMENT_ROOT  $document_root;
+    fastcgi_param  SERVER_PROTOCOL$server_protocol;
+    
+    fastcgi_param  REMOTE_ADDR$remote_addr;
+    fastcgi_param  REMOTE_PORT$remote_port;
+    fastcgi_param  SERVER_ADDR$server_addr;
+    fastcgi_param  SERVER_PORT$server_port;
+    fastcgi_param  SERVER_NAME$server_name;
+
+pathinfo
+创建pathinfo.conf
+
+    cat > /usr/local/webserver/nginx/conf/pathinfo.conf << 'EOF'
+    set $real_script_name $fastcgi_script_name;
+    if ($fastcgi_script_name ~ "(.+?\.php)(/.*)") {
+    set $real_script_name $1;
+    set $path_info $2;
+    }
+    fastcgi_param SCRIPT_FILENAME $document_root$real_script_name;
+    fastcgi_param SCRIPT_NAME $real_script_name;
+    fastcgi_param PATH_INFO $path_info;
+    EOF
+    
+平滑重启方法
+
+    /usr/local/webserver/nginx/sbin/nginx -s reload
+
+nginx.conf
+创建nginx.conf
+
+    cat > /usr/local/webserver/nginx/conf/nginx.conf <<'EOF'
+    user  www www;
+    worker_processes 4;
+    error_log  /var/log/nginx_error.log  crit;
+    worker_rlimit_nofile 65535;
+    events
+    {
+      use epoll;
+      worker_connections 65535;
+    }
+    
+    http
+    {
+      include   mime.types;
+      default_type  application/octet-stream;
+    
+      server_names_hash_bucket_size 128;
+      client_header_buffer_size 32k;
+      large_client_header_buffers 4 32k;
+      client_max_body_size 8m;
+    
+      sendfile on;
+      tcp_nopush on;
+      keepalive_timeout 60;
+      tcp_nodelay on;
+    
+      fastcgi_connect_timeout 300;
+      fastcgi_send_timeout 300;
+      fastcgi_read_timeout 300;
+      fastcgi_buffer_size 64k;
+      fastcgi_buffers 4 64k;
+      fastcgi_busy_buffers_size 128k;
+      fastcgi_temp_file_write_size 128k;
+    
+      gzipon;
+      gzip_min_length   1k;
+      gzip_buffers   4 8k;
+      gzip_http_version  1.1;
+      gzip_types   text/plain application/x-javascript text/css  application/xml;
+      gzip_disable "MSIE [1-6]\.";
+    
+      log_format  access  '$remote_addr - $remote_user [$time_local] "$request" '
+     '$status $body_bytes_sent "$http_referer" '
+     '"$http_user_agent" $http_x_forwarded_for';
+    
+      include site/*.conf;
+    }
+    EOF
+
+建立站点目录
+创建目录
+
+    mkdir -pv /data/www
+    chmod -R 777 /data/www
+    chown -R www:www /data/www
+    
+    mkdir -pv /usr/local/webserver/nginx/conf/site
+    chmod -R 777 /usr/local/webserver/nginx/conf/site
+
+创建默认站点配置文件default.conf
+
+    cat > /usr/local/webserver/nginx/conf/site/default.conf <<'EOF'
+    server
+    {
+    listen   80;
+    server_name  default;
+    index index.html index.htm index.php;
+    root  /data/www;
+    
+    
+    location / {
+    if (!-e $request_filename) {
+    rewrite ^/(.*)$ /index.php/$1 last;
+    }
+    }
+    
+    
+    location ~ .*\.php[/]?
+    {
+      include php_fcgi.conf;
+       include pathinfo.conf;
+    }
+    
+    location ~ .*\.(gif|jpg|jpeg|png|bmp|swf)$
+    {
+      expires  30d;
+    }
+    
+    location ~ .*\.(js|css)?$
+    {
+      expires  1h;
+    }
+    
+    access_log /var/log/nginx_access.log;
+    
+    }
+    EOF
+重启nginx
+
+
+    /usr/local/webserver/nginx/sbin/nginx -s reload
+启动|停止|重启 脚本
+
+    #!/bin/sh
+    #
+    # nginx - this script starts and stops the nginx daemin
+    #
+    # chkconfig:   - 85 15
+    # description:  Nginx is an HTTP(S) server, HTTP(S) reverse \
+    #   proxy and IMAP/POP3 proxy server
+    # processname: nginx
+    # config:  /usr/local/webserver/nginx/conf/nginx.conf
+    # pidfile: /usr/local/webserver/nginx/logs/nginx.pid
+    
+    # Source function library.
+    . /etc/rc.d/init.d/functions
+    
+    # Source networking configuration.
+    . /etc/sysconfig/network
+    
+    # Check that networking is up.
+    [ "$NETWORKING" = "no" ] && exit 0
+    
+    nginx="/usr/local/webserver/nginx/sbin/nginx"
+    prog=$(basename $nginx)
+    
+    NGINX_CONF_FILE="/usr/local/webserver/nginx/conf/nginx.conf"
+    
+    lockfile=/var/lock/subsys/nginx
+    
+    start() {
+    [ -x $nginx ] || exit 5
+    [ -f $NGINX_CONF_FILE ] || exit 6
+    echo -n $"Starting $prog: "
+    daemon $nginx -c $NGINX_CONF_FILE
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && touch $lockfile
+    return $retval
+    }
+    
+    stop() {
+    echo -n $"Stopping $prog: "
+    killproc $prog -QUIT
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && rm -f $lockfile
+    return $retval
+    }
+    
+    restart() {
+    configtest || return $?
+    stop
+    start
+    }
+    
+    reload() {
+    configtest || return $?
+    echo -n $"Reloading $prog: "
+    killproc $nginx -HUP
+    RETVAL=$?
+    echo
+    }
+    
+    force_reload() {
+    restart
+    }
+    
+    configtest() {
+      $nginx -t -c $NGINX_CONF_FILE
+    }
+    
+    rh_status() {
+    status $prog
+    }
+    
+    rh_status_q() {
+    rh_status >/dev/null 2>&1
+    }
+    
+    case "$1" in
+    start)
+    rh_status_q && exit 0
+    $1
+    ;;
+    stop)
+    rh_status_q || exit 0
+    $1
+    ;;
+    restart|configtest)
+    $1
+    ;;
+    reload)
+    rh_status_q || exit 7
+    $1
+    ;;
+    force-reload)
+    force_reload
+    ;;
+    status)
+    rh_status
+    ;;
+    condrestart|try-restart)
+    rh_status_q || exit 0
+    ;;
+    *)
+    echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload|configtest}"
+    exit 2
+    esac
+ 设置开机启动
+    
+    chkconfig --add nginx
+    chkconfig nginx on
+   测试
+    
+    cat > /data/www/index.php <<'EOF'
+    <?php
+    echo 'Welcome to yiyon'
+    EOF
+ 使用curl查看
+
+
+    [root@ecos02 ~]# curl 182.92.212.163
+
+结果应该返回
+
+    Welcome to yiyon!
+   
+###PHP 安装&配置
+
+**安装**
+
+- 安装编译PHP需要的支持库
+
+安装freetype库
+    
+    tar zxvf freetype-2.3.5.tar.gz
+    cd freetype
+    ./configure --prefix=/usr/local/webserver/freetype/
+    make && make install
+    
+编译安装前的准备
+提示：默认的php安装后gd不支持jpg，只支持gif、png、bmp。所以首先要安装gd库
+    
+    wget http://www.boutell.com/gd/http/gd-2.0.35.tar.gz
+    tar zxvf gd-2.0.33.tar.gz
+    cd gd-2.0.33
+    ./configure --prefix=/usr/local/webserver/gd2/
+    make && make install
+libiconv
+加强系统对支持字符编码转换的功能
+
+    wget http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.13.1.tar.gz
+    tar zxvf libiconv-1.13.1.tar.gz
+    cd libiconv-1.13.1/
+    ./configure --prefix=/usr/local
+    make
+    make install
+    
+    libmcrypt
+
+加密算法库，PHP扩展mcrypt功能对此库有依耐关系
+
+    wget http://downloads.sourceforge.net/mcrypt/libmcrypt-2.5.8.tar.gz
+    tar zxvf libmcrypt-2.5.8.tar.gz
+    cd libmcrypt-2.5.8
+    ./configure
+    make
+    make install
+    /sbin/ldconfig
+    
+    cd libltdl/
+    ./configure --enable-ltdl-install
+    make
+    make install
+    
+    mhash
+    
+hash 加密算法库
+
+    wget http://downloads.sourceforge.net/mhash/mhash-0.9.9.9.tar.gz
+    tar zxvf mhash-0.9.9.9.tar.gz
+    cd mhash-0.9.9.9
+    ./configure
+    make
+    make install
+建立软连接
+    
+    ln -s /usr/local/lib/libiconv.so.2 /usr/lib/libiconv.so.2
+    
+    ln -s /usr/local/lib/libmcrypt.la /usr/lib/libmcrypt.la
+    ln -s /usr/local/lib/libmcrypt.so /usr/lib/libmcrypt.so
+    ln -s /usr/local/lib/libmcrypt.so.4 /usr/lib/libmcrypt.so.4
+    ln -s /usr/local/lib/libmcrypt.so.4.4.8 /usr/lib/libmcrypt.so.4.4.8
+    ln -s /usr/local/bin/libmcrypt-config /usr/bin/libmcrypt-config
+    
+    ln -s /usr/local/lib/libmhash.a /usr/lib/libmhash.a
+    ln -s /usr/local/lib/libmhash.la /usr/lib/libmhash.la
+    ln -s /usr/local/lib/libmhash.so /usr/lib/libmhash.so
+    ln -s /usr/local/lib/libmhash.so.2 /usr/lib/libmhash.so.2
+    ln -s /usr/local/lib/libmhash.so.2.0.1 /usr/lib/libmhash.so.2.0.1
+
+配置立即生效
+
+    ldconfig
+
+mcrypt
+
+    wget http://downloads.sourceforge.net/mcrypt/mcrypt-2.6.8.tar.gz
+    tar zxvf mcrypt-2.6.8.tar.gz
+    cd mcrypt-2.6.8/
+    /sbin/ldconfig
+    ./configure
+    make
+    make install
+开始编译
+
+    wget  http://us2.php.net/distributions/php-5.3.29.tar.gz    
+    tar zxvf php-5.3.29.tar.gz
+    cd php-5.3.29
+    ./configure --prefix=/usr/local/webserver/php --enable-fpm --with-mysql=/usr/local/webserver/mysql \
+    --with-mysqli=/usr/local/webserver/mysql/bin/mysql_config --with-config-file-path=/usr/local/webserver/php  \
+    --with-openssl --enable-mbstring --with-zlib --enable-xml --with-freetype-dir=/usr/local/webserver/freetype/ --with-gd=/usr/local/webserver/gd2/ --with-jpeg-dir  \
+    --enable-bcmath --with-mcrypt --with-iconv --enable-pcntl --enable-shmop --enable-simplexml --enable-ftp
+    make && make install
+    
+    cp php.ini-development /usr/local/webserver/php/php.ini
+
+修改php(php.ini)
+
+      将  ;date.timezone =
+      改为 date.timezone = prc
+
+php+pathinfo（php.ini）
+
+    enable_dl = On
+    cgi.force_redirect = 0
+    cgi.fix_pathinfo=1
+    fastcgi.impersonate = 1
+    cgi.rfc2616_headers = 1
+    allow_url_fopen = On
+
+
+创建www用户和组
+
+    /usr/sbin/groupadd www
+    /usr/sbin/useradd -g www www
+    
+编辑php-fpm.conf
+
+    cat > /usr/local/webserver/php/etc/php-fpm.conf <<'EOF'
+    [global]
+    pid = /usr/local/webserver/php/var/run/php-fpm.pid
+    error_log = /usr/local/webserver/php/var/log/php-fpm.log
+    log_level = notice
+    emergency_restart_threshold = 10
+    emergency_restart_interval = 1m
+    process_control_timeout = 5s
+    daemonize = yes
+    
+    [www]
+    listen = /tmp/php_fcgi.sock
+    listen.backlog = -1
+    listen.allowed_clients = 127.0.0.1
+    user = www
+    group = www
+    listen.mode=0666
+    pm = static
+    pm.max_children = 64
+    pm.start_servers = 20
+    pm.min_spare_servers = 5
+    pm.max_spare_servers = 35
+    pm.max_requests = 1024
+    
+    request_terminate_timeout = 0s
+    request_slowlog_timeout = 0s
+    slowlog = logs/slow.log
+    rlimit_files = 65535
+    rlimit_core = 0
+    chroot =
+    chdir =
+    catch_workers_output = yes
+    env[HOSTNAME] = $HOSTNAME
+    env[PATH] = /usr/local/bin:/usr/bin:/bin
+    env[TMP] = /tmp
+    env[TMPDIR] = /tmp
+    env[TEMP] = /tmp
+    
+    php_flag[display_errors] = off
+    EOF
+
+启动前可先测试下php-fpm.conf的语法是否正确。
+
+    /usr/local/webserver/php/sbin/php-fpm -t
+
+如出现下面的提示，表示没有问题。
+
+    [30 18:47:32] NOTICE: configuration file /usr/local/webserver/php/etc/php-fpm.conf test is successful
+    
+启动php-cgi进程后，监听的是127.0.0.1的9000端口，进程数为64(如果服务器内存小于3GB，可以只开启64个进程)，用户为www。
+
+    #/usr/local/webserver/php/sbin/php-fpm
+
+设置开机启动
+
+    chkconfig -add php-fpm
+    chkconfig php-fpm on
+
+启动 php-fpm
+
+    service php-fpm start
+
+检查phpinfo php+nginx是否配置成功
+
+解密工具
+
+下载
+
+    ZendGuardLoader-php-5.3-linux-glibc23-x86_64.tar.gz
+
+安装
+
+      tar zxvf ZendGuardLoader-php-5.3-linux-glibc23-x86_64.tar.gz
+      cd ZendGuardLoader-php-5.3-linux-glibc23-x86_64/
+      cp php-5.3.x/ZendGuardLoader.so /usr/local/webserver/php/ext/
+
+配置
+打开php.ini，加入以下代码：
+    
+    [Zend Guard]
+    ;/usr/local/webserver/php/ext/ZendGuardLoader.so  这个是你当时指定的zend的目录
+    zend_extension=/usr/local/webserver/php/ext/ZendGuardLoader.so
+    zend_loader.enable=1
+    zend_loader.disable_licensing=0
+    zend_loader.obfuscation_level_support=3
+    zend_loader.license_path=
+    
+重启nginx 和 php-fpm，打开phpinfo查看如下图所示，证明配置成功：
+
+![Alt text](http://chuantu.biz/t2/11/1438442142x-1566638291.png)
+
+
+- 安装走到这里就配置环境就基本上安装完成了。在安装过程中可能出现许多未知的问题，以下是个人在配置环境中遇到的一些问题以及解决的办法，仅供参开。
+
+**php5.3.29安装问题**
+
+1.configure: error: Cannot find ldap libraries in /usr/lib.
+
+解决办法:
+
+    cp -frp /usr/lib64/libldap* /usr/lib/
+    然后再./configure ...即可
+
+
+2./root/php-5.3.29/sapi/cli/php: error while loading shared libraries: libmysqlclient.so.18: cannot open shared object file: No such file or directory
+
+解决办法：
+
+    find / -name libmysqlclient.so.18
+    find / -name libmysqlclient.so
+    ln -s /usr/local/webserver/mysql/lib/libmysqlclient.so.18 /usr/lib/
+    ln -s /usr/local/webserver/mysql/lib/libmysqlclient.so /usr/lib/
+    
+3.chmod: cannot access `ext/phar/phar.phar': No such file or directory
+make: [ext/phar/phar.phar] Error 1 (ignored)
+
+解决办法：
+
+    cp /root/php-5.3.29/ext/phar/phar.php  /root/php-5.3.29/ext/phar/phar.phar
+
+
+4. configure error xml2-config not found. please check your libxml2 installation
+
+解决办法：
+
+    重新安装libxml2和libxml2-devel包, yum安装的时候发现新版本会提示更新，需要更新的可以更新，不要跳过就行了。
+    [root@rh-linux /]# yum install libxml2
+    [root@rh-linux /]# yum install libxml2-devel -y
+    安装完之后查找xml2-config文件是否存在
+    [root@rh-linux /] # find / -name "xml2-config"
+    /usr/bin/xml2-config 
+    如果存在的话重新安装php
+    [root@rh-linux  php-5.4.3]# ./configure
+    
+5.configure: error: Cannot find OpenSSL's <evp.h>
+
+
+    解决办法： yum  install  openssl.x86_64 openssl-devel.x86_64 -y
+
+6.configure: error: Please reinstall the libcurl distribution -easy.h should be in <curl-dir>/include/curl/
+
+    解决办法：
+     yum install curl curl-devel 
+
+7.configure: error: jpeglib.h not found.
+
+    解决办法：
+    yum install libjpeg-devel
+
+8.configure: error: Cannot find ldap.h
+
+    解决办法：
+     yum install openldap
+    yum install openldap-devel
+
+9.configure: error: mcrypt.h not found. Please reinstall libmcrypt.
+
+    解决办法：
+    1、安装第三方yum源   （如果有直接走第二步）
+    wget http://www.atomicorp.com/installers/atomic
+    sh ./atomic
+    2、使用yum命令安装
+    yum  install  php-mcrypt  libmcrypt  libmcrypt-devel 
+
+10.Configure: error: Cannot find MySQL header files under /usr.
+Note that the MySQL client library is not bundled anymore!
+ 
+    解决办法：
+     yum install mysql-devel 
 
 # 5. ecstore商城linux环境部署
  - 1.安装服务器环境，我这边是直接安装lnmp  一键安装包
